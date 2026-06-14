@@ -67,97 +67,101 @@ try {
 
 function playSound(type) {
     if (!audioCtx) return;
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-    
-    const osc = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    osc.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    
-    const now = audioCtx.currentTime;
-    
-    if (type === 'shoot_squire') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(400, now);
-        osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
-        gainNode.gain.setValueAtTime(0.15, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        osc.start(now);
-        osc.stop(now + 0.15);
-    } else if (type === 'shoot_mage') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, now);
-        osc.frequency.exponentialRampToValueAtTime(300, now + 0.2);
-        gainNode.gain.setValueAtTime(0.12, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-        osc.start(now);
-        osc.stop(now + 0.2);
-    } else if (type === 'shoot_ninja') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
-        gainNode.gain.setValueAtTime(0.08, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-        osc.start(now);
-        osc.stop(now + 0.08);
-    } else if (type === 'shoot_golem') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(120, now);
-        osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
-        gainNode.gain.setValueAtTime(0.3, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        osc.start(now);
-        osc.stop(now + 0.3);
-    } else if (type === 'hit') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(150, now);
-        gainNode.gain.setValueAtTime(0.15, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-        osc.start(now);
-        osc.stop(now + 0.05);
-    } else if (type === 'buy') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(261.6, now); // C4
-        osc.frequency.setValueAtTime(329.6, now + 0.08); // E4
-        osc.frequency.setValueAtTime(392.0, now + 0.16); // G4
-        osc.frequency.setValueAtTime(523.3, now + 0.24); // C5
-        gainNode.gain.setValueAtTime(0.1, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-        osc.start(now);
-        osc.stop(now + 0.35);
-    } else if (type === 'sell') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.3, now); // C5
-        osc.frequency.setValueAtTime(392.0, now + 0.08); // G4
-        osc.frequency.setValueAtTime(329.6, now + 0.16); // E4
-        osc.frequency.setValueAtTime(261.6, now + 0.24); // C4
-        gainNode.gain.setValueAtTime(0.1, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-        osc.start(now);
-        osc.stop(now + 0.35);
-    } else if (type === 'hurt') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(180, now);
-        osc.frequency.linearRampToValueAtTime(60, now + 0.25);
-        gainNode.gain.setValueAtTime(0.2, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        osc.start(now);
-        osc.stop(now + 0.25);
-    } else if (type === 'victory') {
-        const notes = [261.6, 329.6, 392.0, 523.3, 659.3, 784.0];
-        notes.forEach((freq, idx) => {
-            const toneOsc = audioCtx.createOscillator();
-            const toneGain = audioCtx.createGain();
-            toneOsc.connect(toneGain);
-            toneGain.connect(audioCtx.destination);
-            toneOsc.frequency.setValueAtTime(freq, now + idx * 0.1);
-            toneGain.gain.setValueAtTime(0.1, now + idx * 0.1);
-            toneGain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.4);
-            toneOsc.start(now + idx * 0.1);
-            toneOsc.stop(now + idx * 0.1 + 0.4);
-        });
+    try {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(e => console.warn("Audio resume blocked:", e));
+        }
+        
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        const now = audioCtx.currentTime;
+        
+        if (type === 'shoot_squire') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+            gainNode.gain.setValueAtTime(0.15, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc.start(now);
+            osc.stop(now + 0.15);
+        } else if (type === 'shoot_mage') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, now);
+            osc.frequency.exponentialRampToValueAtTime(300, now + 0.2);
+            gainNode.gain.setValueAtTime(0.12, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        } else if (type === 'shoot_ninja') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
+            gainNode.gain.setValueAtTime(0.08, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+            osc.start(now);
+            osc.stop(now + 0.08);
+        } else if (type === 'shoot_golem') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(120, now);
+            osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+            gainNode.gain.setValueAtTime(0.3, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        } else if (type === 'hit') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, now);
+            gainNode.gain.setValueAtTime(0.15, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
+        } else if (type === 'buy') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(261.6, now); // C4
+            osc.frequency.setValueAtTime(329.6, now + 0.08); // E4
+            osc.frequency.setValueAtTime(392.0, now + 0.16); // G4
+            osc.frequency.setValueAtTime(523.3, now + 0.24); // C5
+            gainNode.gain.setValueAtTime(0.1, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+            osc.start(now);
+            osc.stop(now + 0.35);
+        } else if (type === 'sell') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.3, now); // C5
+            osc.frequency.setValueAtTime(392.0, now + 0.08); // G4
+            osc.frequency.setValueAtTime(329.6, now + 0.16); // E4
+            osc.frequency.setValueAtTime(261.6, now + 0.24); // C4
+            gainNode.gain.setValueAtTime(0.1, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+            osc.start(now);
+            osc.stop(now + 0.35);
+        } else if (type === 'hurt') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(180, now);
+            osc.frequency.linearRampToValueAtTime(60, now + 0.25);
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc.start(now);
+            osc.stop(now + 0.25);
+        } else if (type === 'victory') {
+            const notes = [261.6, 329.6, 392.0, 523.3, 659.3, 784.0];
+            notes.forEach((freq, idx) => {
+                const toneOsc = audioCtx.createOscillator();
+                const toneGain = audioCtx.createGain();
+                toneOsc.connect(toneGain);
+                toneGain.connect(audioCtx.destination);
+                toneOsc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                toneGain.gain.setValueAtTime(0.1, now + idx * 0.1);
+                toneGain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.4);
+                toneOsc.start(now + idx * 0.1);
+                toneOsc.stop(now + idx * 0.1 + 0.4);
+            });
+        }
+    } catch (e) {
+        console.warn("Failed to play sound:", e);
     }
 }
 
