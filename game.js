@@ -925,7 +925,7 @@ function startWave() {
     // Wave configuration: generate sequence of enemies
     state.spawnQueue = [];
     const count = 5 + state.wave * 3;
-    const healthMultiplier = Math.pow(1.03, state.wave - 1);
+    const healthMultiplier = Math.pow(1.02, state.wave - 1);
     
     // Determine enemy mix based on wave number
     for (let i = 0; i < count; i++) {
