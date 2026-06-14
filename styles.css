@@ -535,6 +535,22 @@ body {
     border-color: #f43f5e;
 }
 
+#cancel-placement-container {
+    margin-bottom: 1.2rem;
+    animation: slideDownFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Controls Panel */
 .controls-panel {
     height: 70px;
