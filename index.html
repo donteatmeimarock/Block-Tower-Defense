@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block Defense 2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="glass-bg"></div>
+    <div class="app-container">
+        <!-- Main Menu Map Selection -->
+        <div id="menu-screen" class="screen active">
+            <div class="menu-content glass-panel">
+                <h1>BLOCK DEFENSE 2</h1>
+                <p class="subtitle">Deploy custom blook towers, upgrade them along 3 unique branches, and defend the track!</p>
+                
+                <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Select Map</h3>
+                <div class="map-grid">
+                    <div class="map-card active" data-map="meadow">
+                        <div class="map-preview meadow-prev">
+                            <svg viewBox="0 0 100 60" width="100%" height="100%">
+                                <path d="M 0 10 Q 50 10 50 30 T 100 50" fill="none" stroke="#4ade80" stroke-width="6" />
+                            </svg>
+                        </div>
+                        <h3>Green Meadow</h3>
+                        <p>A simple winding path. Great for beginners.</p>
+                    </div>
+                    <div class="map-card" data-map="volcano">
+                        <div class="map-preview volcano-prev">
+                            <svg viewBox="0 0 100 60" width="100%" height="100%">
+                                <path d="M 0 50 C 30 10 70 10 100 50" fill="none" stroke="#f43f5e" stroke-width="6" />
+                            </svg>
+                        </div>
+                        <h3>Volcanic Path</h3>
+                        <p>High speed turns and short sightlines. Hard.</p>
+                    </div>
+                </div>
+                
+                <button id="start-btn" class="glass-btn primary-btn" style="margin-top: 2.5rem;">DEPLOY TO BATTLE</button>
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <div id="game-screen" class="screen">
+            <!-- Header HUD -->
+            <header class="game-hud glass-panel">
+                <div class="hud-item" id="hud-wave">
+                    <span class="hud-label">WAVE</span>
+                    <span class="hud-val">1</span>
+                </div>
+                <div class="hud-item" id="hud-lives">
+                    <span class="hud-label">LIVES</span>
+                    <span class="hud-val text-red"><i class="fa-solid fa-heart"></i> 100</span>
+                </div>
+                <div class="hud-item" id="hud-tokens">
+                    <span class="hud-label">TOKENS</span>
+                    <span class="hud-val text-yellow"><i class="fa-solid fa-coins"></i> 300</span>
+                </div>
+                <button id="back-to-menu-btn" class="hud-btn"><i class="fa-solid fa-right-from-bracket"></i></button>
+            </header>
+
+            <div class="main-layout">
+                <!-- Game Board Canvas Container -->
+                <div class="canvas-container glass-panel">
+                    <canvas id="game-canvas" width="800" height="550"></canvas>
+                    <div id="canvas-overlay" class="hidden"></div>
+                </div>
+
+                <!-- Right Sidebar (Shop or Upgrades) -->
+                <div class="sidebar glass-panel">
+                    <!-- Shop View -->
+                    <div id="shop-view" class="sidebar-content active">
+                        <h2>TOWER SHOP</h2>
+                        <div class="shop-grid" id="shop-items">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Inspector View (Selected Tower) -->
+                    <div id="inspector-view" class="sidebar-content">
+                        <div class="inspector-header">
+                            <button id="close-inspector-btn" class="back-btn"><i class="fa-solid fa-chevron-left"></i> Shop</button>
+                            <h2 id="inspect-name">Tower</h2>
+                        </div>
+                        
+                        <div class="inspect-body">
+                            <div class="inspect-preview-container">
+                                <canvas id="inspect-preview-canvas" width="80" height="80"></canvas>
+                                <div class="inspect-stats">
+                                    <p id="inspect-stat-damage">Damage: 10</p>
+                                    <p id="inspect-stat-speed">Rate: 1.2/s</p>
+                                    <p id="inspect-stat-range">Range: 150</p>
+                                </div>
+                            </div>
+
+                            <div class="target-mode-selector">
+                                <label for="target-select">Target Strategy:</label>
+                                <select id="target-select" class="glass-select">
+                                    <option value="first">First</option>
+                                    <option value="last">Last</option>
+                                    <option value="strongest">Strongest</option>
+                                    <option value="weakest">Weakest</option>
+                                    <option value="nearest">Nearest</option>
+                                </select>
+                            </div>
+
+                            <hr class="divider">
+
+                            <h3>Upgrades</h3>
+                            <div class="upgrade-branches" id="upgrade-options">
+                                <!-- Upgrade option cards injected here -->
+                            </div>
+
+                            <hr class="divider">
+
+                            <button id="sell-btn" class="danger-btn"><i class="fa-solid fa-trash-can"></i> Sell for <span id="sell-price">80</span> Tokens</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Control Panel -->
+            <div class="controls-panel glass-panel">
+                <div class="speed-controls">
+                    <button class="speed-btn active" data-speed="1">1x Speed</button>
+                    <button class="speed-btn" data-speed="2">2x Speed</button>
+                    <button class="speed-btn" data-speed="4">4x Speed</button>
+                </div>
+                <button id="start-wave-btn" class="glass-btn start-wave-btn">START WAVE <i class="fa-solid fa-play"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Victory/Defeat Modals -->
+    <div id="game-over-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <h2 id="modal-title">DEFEAT!</h2>
+            <p id="modal-desc">The enemies overrun your defenses.</p>
+            <button id="modal-retry-btn" class="glass-btn primary-btn">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
