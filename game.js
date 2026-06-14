@@ -217,7 +217,7 @@ const TOWER_TEMPLATES = {
                     { title: 'Swift Draw', desc: 'Increases attack rate by 40%', cost: 50, fireRate: 1.4 },
                     { title: 'Double Shot', desc: 'Fires 2 arrows simultaneously', cost: 120, extraProjectiles: 1 },
                     { title: 'Bowmaster', desc: 'Converts weapons to heavy shurikens', cost: 250, damage: 15, pierce: 3 },
-                    { title: 'Eagle Eye', desc: 'Increases range by 50% and crit chance', cost: 500, range: 210 },
+                    { title: 'Eagle Eye', desc: 'Increases range by 50% and crit chance', cost: 500, range: 210, critChance: 0.25, critMultiplier: 2 },
                     { title: 'Sovereign Ranger', desc: 'Unleashes rapid projectile sweeps', cost: 1000, fireRate: 3.5, damage: 25 }
                 ]
             },
@@ -235,7 +235,7 @@ const TOWER_TEMPLATES = {
                 name: 'Taxes Path (Gold & Income)',
                 levels: [
                     { title: 'Toll Gate', desc: 'Earn +2 tokens for every kill in range', cost: 80, bonusKillTokens: 2 },
-                    { title: 'Lucky Strike', desc: '15% chance to hit for 3x critical damage', cost: 160 },
+                    { title: 'Lucky Strike', desc: '15% chance to hit for 3x critical damage', cost: 160, critChance: 0.15, critMultiplier: 3 },
                     { title: 'Treasure Collector', desc: 'Generates 15 tokens at wave end', cost: 300, roundBonusTokens: 15 },
                     { title: 'Golden Aura', desc: 'Increases nearby tower damage by 10%', cost: 700 },
                     { title: 'Midas Emperor', desc: 'Generates 100 tokens at end of every wave', cost: 1500, roundBonusTokens: 100 }
@@ -350,9 +350,9 @@ const TOWER_TEMPLATES = {
             branch2: {
                 name: 'Assassination Path (Single Target Crit)',
                 levels: [
-                    { title: 'Vital Spot', desc: '15% chance to land critical hit (3x damage)', cost: 70 },
+                    { title: 'Vital Spot', desc: '15% chance to land critical hit (3x damage)', cost: 70, critChance: 0.15, critMultiplier: 3 },
                     { title: 'Poison Darts', desc: 'Hits infect targets, dealing damage over time', cost: 160, dotDamage: 5 },
-                    { title: 'Shinobi Assassin', desc: '30% crit chance for 5x damage', cost: 380 },
+                    { title: 'Shinobi Assassin', desc: '30% crit chance for 5x damage', cost: 380, critChance: 0.30, critMultiplier: 5 },
                     { title: 'Noxious Blade', desc: 'Poison slows target by 30% and deals double DoT', cost: 850, slowFactor: 0.7 },
                     { title: 'Void Master', desc: 'Instantly executes small targets below 20% HP', cost: 2600 }
                 ]
@@ -872,17 +872,11 @@ function buyUpgrade(branchKey, cost) {
     const branch = template.upgradeTree[branchKey];
     for (let i = 0; i < t.upgradeLevel; i++) {
         const u = branch.levels[i];
-        if (u.damage) t.stats.damage = u.damage;
-        if (u.fireRate) t.stats.fireRate = u.fireRate;
-        if (u.range) t.stats.range = u.range;
-        if (u.pierce) t.stats.pierce = u.pierce;
-        if (u.slowFactor) t.stats.slowFactor = u.slowFactor;
-        if (u.stunDuration) t.stats.stunDuration = u.stunDuration;
-        if (u.splashRadius) t.stats.splashRadius = u.splashRadius;
-        if (u.chainCount) t.stats.chainCount = u.chainCount;
-        if (u.auraDamage) t.stats.auraDamage = u.auraDamage;
-        if (u.dotDamage) t.stats.dotDamage = u.dotDamage;
-        if (u.extraProjectiles) t.stats.extraProjectiles = u.extraProjectiles;
+        Object.keys(u).forEach(key => {
+            if (key !== 'title' && key !== 'desc' && key !== 'cost') {
+                t.stats[key] = u[key];
+            }
+        });
     }
     
     selectTower(t); // Refresh UI
@@ -1209,7 +1203,15 @@ function updateTowers() {
             t.angle = Math.atan2(target.y - t.y, target.x - t.x);
             
             // Check fire rate cooldown
-            const fireInterval = 1000 / (t.stats.fireRate * getKingSpeedBuff(t));
+            let baseFireRate = t.stats.fireRate;
+            if (t.type === 'squire' && t.branch === 'branch2' && t.upgradeLevel >= 4) {
+                // Berserker Force: +10% attack speed for each nearby enemy within range
+                const range = t.stats.range * getKingRangeBuff(t);
+                const nearbyEnemiesCount = state.enemies.filter(e => Math.hypot(e.x - t.x, e.y - t.y) <= range).length;
+                baseFireRate *= (1 + 0.10 * nearbyEnemiesCount);
+            }
+            
+            const fireInterval = 1000 / (baseFireRate * getKingSpeedBuff(t));
             if (now - t.lastShot >= fireInterval) {
                 t.lastShot = now;
                 fireTower(t, target);
@@ -1278,6 +1280,26 @@ function getKingRangeBuff(tower) {
 // Fire Projectile
 function fireTower(tower, target) {
     playSound(`shoot_${tower.type}`);
+    
+    // Squire Knight Path AoE Spin (No projectile)
+    if (tower.type === 'squire' && tower.stats.isAoeAround) {
+        const range = tower.stats.range * getKingRangeBuff(tower);
+        state.enemies.forEach(e => {
+            if (Math.hypot(e.x - tower.x, e.y - tower.y) <= range) {
+                let finalDmg = tower.stats.damage * getKingDamageBuff(tower);
+                
+                // Double damage check if Berserker force is active (Level 4: +10% speed/damage per nearby enemy)
+                if (tower.upgradeLevel >= 4) {
+                    const enemiesCount = state.enemies.filter(enemy => Math.hypot(enemy.x - tower.x, enemy.y - tower.y) <= range).length;
+                    finalDmg *= (1 + 0.1 * enemiesCount);
+                }
+                
+                e.hp -= Math.round(finalDmg);
+            }
+        });
+        spawnSlamWave(tower.x, tower.y, range);
+        return;
+    }
     
     // Golem Slam is instant splash, no projectile
     if (tower.type === 'golem' && !tower.stats.isLaser) {
@@ -1374,6 +1396,15 @@ function fireTower(tower, target) {
         return;
     }
     
+    // Calculate critical hit chance
+    let baseDamage = tower.stats.damage * getKingDamageBuff(tower);
+    let isCrit = false;
+    if (tower.stats.critChance && Math.random() < tower.stats.critChance) {
+        baseDamage *= (tower.stats.critMultiplier || 2);
+        isCrit = true;
+    }
+    const finalDamage = Math.round(baseDamage);
+
     // Multiple projectile branch (e.g. Archer / Ninja Quad Shuriken fan)
     if (tower.stats.extraProjectiles) {
         const extra = tower.stats.extraProjectiles;
@@ -1389,7 +1420,8 @@ function fireTower(tower, target) {
                 y: tower.y,
                 vx: cos * tower.stats.bulletSpeed,
                 vy: sin * tower.stats.bulletSpeed,
-                damage: tower.stats.damage * getKingDamageBuff(tower),
+                damage: finalDamage,
+                isCrit: isCrit,
                 pierce: tower.stats.pierce || 1,
                 hitEnemies: [], // Avoid hitting same target twice
                 
@@ -1410,7 +1442,8 @@ function fireTower(tower, target) {
         y: tower.y,
         vx: cos * tower.stats.bulletSpeed,
         vy: sin * tower.stats.bulletSpeed,
-        damage: tower.stats.damage * getKingDamageBuff(tower),
+        damage: finalDamage,
+        isCrit: isCrit,
         pierce: tower.stats.pierce || 1,
         slowFactor: tower.stats.slowFactor || 1,
         stunDuration: tower.stats.stunDuration || 0,
