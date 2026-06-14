@@ -409,6 +409,47 @@ const TOWER_TEMPLATES = {
                 ]
             }
         }
+    },
+    drawbridge: {
+        name: 'Drawbridge',
+        cost: 120,
+        range: 40,
+        damage: 0,
+        fireRate: 0,
+        color: '#78716c',
+        desc: 'Placed on track. Alternates open and closed states to stop enemies.',
+        upgradeTree: {
+            branch1: {
+                name: 'Thorned Gate (Spikes)',
+                levels: [
+                    { title: 'Iron Spikes', desc: 'Deals 5 damage per second to blocked enemies', cost: 60 },
+                    { title: 'Heavy Grate', desc: 'Deals 12 damage per second to blocked enemies', cost: 130 },
+                    { title: 'Razor Teeth', desc: 'Deals 25 damage per second and bleeds enemies', cost: 300 },
+                    { title: 'Spike Pit', desc: 'Deals 50 damage per second; slows passing by 30%', cost: 700 },
+                    { title: 'Dreadnought Portcullis', desc: 'Deals 150 damage per second to blocked enemies', cost: 1800 }
+                ]
+            },
+            branch2: {
+                name: 'Sturdy Support (Longer Closed)',
+                levels: [
+                    { title: 'Reinforced Wood', desc: 'Stays closed for 4.5 seconds instead of 4', cost: 50 },
+                    { title: 'Iron Hinges', desc: 'Stays closed for 5 seconds', cost: 110 },
+                    { title: 'Stone Bastion', desc: 'Stays closed for 5.5 seconds', cost: 250 },
+                    { title: 'Steel Anchors', desc: 'Stays closed for 6 seconds', cost: 600 },
+                    { title: 'Keep of the Realm', desc: 'Stays closed for 7 seconds; nearby towers deal +15% damage', cost: 1500 }
+                ]
+            },
+            branch3: {
+                name: 'Toll Bridge (Gold)',
+                levels: [
+                    { title: 'Toll Collection', desc: 'Earn 3 tokens when enemies pass through when open', cost: 80 },
+                    { title: 'Tax Gate', desc: 'Earn 6 tokens when enemies pass through when open', cost: 160 },
+                    { title: 'Merchant Pass', desc: 'Earn 20 tokens at the end of each wave', cost: 320 },
+                    { title: 'Royal Customs', desc: 'Earn 12 tokens per pass, 40 per wave end', cost: 750 },
+                    { title: 'Grand Customs Citadel', desc: 'Earn 150 tokens per wave, passing pay 20 tokens', cost: 2000 }
+                ]
+            }
+        }
     }
 };
 
@@ -655,6 +696,22 @@ function onCanvasClick(e) {
                 targetStrategy: 'first',
                 stats: { ...TOWER_TEMPLATES[state.placingTowerType] }
             };
+            
+            if (state.placingTowerType === 'drawbridge') {
+                const proj = getPathProjection(state.mouse.x, state.mouse.y);
+                newTower.x = proj.x;
+                newTower.y = proj.y;
+                newTower.distAlongTrack = proj.distAlongTrack;
+                newTower.segmentIndex = proj.segmentIndex;
+                newTower.bridgeState = 'closed';
+                newTower.stateTimer = 0;
+                
+                const map = MAPS[state.activeMap];
+                const p1 = map.path[proj.segmentIndex];
+                const p2 = map.path[proj.segmentIndex + 1];
+                newTower.angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            }
+            
             state.towers.push(newTower);
             state.placingTowerType = null;
             updateCancelPlacementUI();
@@ -689,6 +746,31 @@ function isValidPlacement(x, y) {
     // Keep away from canvas bounds
     if (x < 30 || x > 770 || y < 30 || y > 520) return false;
     
+    if (state.placingTowerType === 'drawbridge') {
+        // Must be close to the track segment
+        const projection = getPathProjection(x, y);
+        if (projection.dist > 20) return false; // Too far from track
+        
+        // Must not be too close to the start or end of the track
+        const map = MAPS[state.activeMap];
+        const distToStart = Math.hypot(x - map.path[0].x, y - map.path[0].y);
+        const distToEnd = Math.hypot(x - map.path[map.path.length - 1].x, y - map.path[map.path.length - 1].y);
+        if (distToStart < 60 || distToEnd < 60) return false;
+        
+        // Check distance to other towers
+        for (let tower of state.towers) {
+            const dist = Math.hypot(tower.x - projection.x, tower.y - projection.y);
+            if (tower.type === 'drawbridge') {
+                if (dist < 80) return false; // Too close to another drawbridge
+            } else {
+                if (dist < 40) return false; // Too close to a regular tower
+            }
+        }
+        
+        return true;
+    }
+    
+    // Regular tower placement
     // Check distance to other towers
     for (let tower of state.towers) {
         const dist = Math.hypot(tower.x - x, tower.y - y);
@@ -716,6 +798,84 @@ function distToSegment(p, v, w) {
     let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
     t = Math.max(0, Math.min(1, t));
     return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+}
+
+// Find closest point on path and its projection information
+function getPathProjection(x, y) {
+    const map = MAPS[state.activeMap];
+    let bestDist = Infinity;
+    let bestSegmentIndex = 0;
+    let bestProjX = 0;
+    let bestProjY = 0;
+    let bestDistAlongTrack = 0;
+    
+    let currentDist = 0;
+    
+    for (let i = 0; i < map.path.length - 1; i++) {
+        const p1 = map.path[i];
+        const p2 = map.path[i + 1];
+        
+        const segLength = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        
+        // Project (x, y) onto segment p1-p2
+        let t = 0;
+        if (segLength > 0) {
+            t = ((x - p1.x) * (p2.x - p1.x) + (y - p1.y) * (p2.y - p1.y)) / (segLength * segLength);
+            t = Math.max(0, Math.min(1, t));
+        }
+        
+        const projX = p1.x + t * (p2.x - p1.x);
+        const projY = p1.y + t * (p2.y - p1.y);
+        
+        const distToProj = Math.hypot(x - projX, y - projY);
+        if (distToProj < bestDist) {
+            bestDist = distToProj;
+            bestSegmentIndex = i;
+            bestProjX = projX;
+            bestProjY = projY;
+            bestDistAlongTrack = currentDist + t * segLength;
+        }
+        
+        currentDist += segLength;
+    }
+    
+    return {
+        dist: bestDist,
+        segmentIndex: bestSegmentIndex,
+        x: bestProjX,
+        y: bestProjY,
+        distAlongTrack: bestDistAlongTrack
+    };
+}
+
+// Get the coordinates (x, y) at a specific distance along the track
+function getPointAtDist(targetDist) {
+    const map = MAPS[state.activeMap];
+    let currentDist = 0;
+    
+    for (let i = 0; i < map.path.length - 1; i++) {
+        const p1 = map.path[i];
+        const p2 = map.path[i + 1];
+        const segLength = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        
+        if (currentDist + segLength >= targetDist) {
+            const t = (targetDist - currentDist) / segLength;
+            return {
+                x: p1.x + t * (p2.x - p1.x),
+                y: p1.y + t * (p2.y - p1.y),
+                segmentIndex: i
+            };
+        }
+        currentDist += segLength;
+    }
+    
+    // Fallback to end of path
+    const lastNode = map.path[map.path.length - 1];
+    return {
+        x: lastNode.x,
+        y: lastNode.y,
+        segmentIndex: map.path.length - 2
+    };
 }
 
 // Select a tower to inspect/upgrade
@@ -1040,6 +1200,11 @@ function endWave() {
         if (t.type === 'king' && t.branch === 'branch3') {
             if (t.upgradeLevel >= 2) roundReward += 25; // Tier 2+ King Round bonus
         }
+        if (t.type === 'drawbridge' && t.branch === 'branch3') {
+            if (t.upgradeLevel === 3) roundReward += 20;
+            else if (t.upgradeLevel === 4) roundReward += 40;
+            else if (t.upgradeLevel === 5) roundReward += 150;
+        }
     });
     
     state.tokens += roundReward;
@@ -1099,35 +1264,83 @@ function updateEnemies() {
         });
         
         if (!isStunned) {
-            // Move along path segments
-            const currentTarget = map.path[e.pathIndex + 1];
-            if (!currentTarget) {
-                // Reached end of path! Lose life
-                state.lives -= e.boss ? 25 : 1;
-                playSound('hurt');
-                state.enemies.splice(i, 1);
-                
-                if (state.lives <= 0) {
-                    state.lives = 0;
-                    gameOver();
+            // Check if blocked by any closed drawbridge
+            let isBlocked = false;
+            let targetBridge = null;
+            
+            for (let t of state.towers) {
+                if (t.type === 'drawbridge' && t.bridgeState === 'closed') {
+                    const step = e.speed * speedMultiplier;
+                    if (e.distTraveled <= t.distAlongTrack && e.distTraveled + Math.max(step, 8) >= t.distAlongTrack) {
+                        isBlocked = true;
+                        targetBridge = t;
+                        break;
+                    }
                 }
-                continue;
             }
             
-            const dx = currentTarget.x - e.x;
-            const dy = currentTarget.y - e.y;
-            const dist = Math.hypot(dx, dy);
-            const step = e.speed * speedMultiplier;
-            
-            if (dist <= step) {
-                e.x = currentTarget.x;
-                e.y = currentTarget.y;
-                e.pathIndex++;
+            if (isBlocked) {
+                // Stop exactly at the bridge!
+                const bridgePos = getPointAtDist(targetBridge.distAlongTrack);
+                e.x = bridgePos.x;
+                e.y = bridgePos.y;
+                e.distTraveled = targetBridge.distAlongTrack;
+                e.pathIndex = bridgePos.segmentIndex;
             } else {
-                e.x += (dx / dist) * step;
-                e.y += (dy / dist) * step;
-                e.distTraveled += step;
+                // Move along path segments
+                const currentTarget = map.path[e.pathIndex + 1];
+                if (!currentTarget) {
+                    // Reached end of path! Lose life
+                    state.lives -= e.boss ? 25 : 1;
+                    playSound('hurt');
+                    state.enemies.splice(i, 1);
+                    
+                    if (state.lives <= 0) {
+                        state.lives = 0;
+                        gameOver();
+                    }
+                    continue;
+                }
+                
+                const dx = currentTarget.x - e.x;
+                const dy = currentTarget.y - e.y;
+                const dist = Math.hypot(dx, dy);
+                const step = e.speed * speedMultiplier;
+                
+                if (dist <= step) {
+                    e.x = currentTarget.x;
+                    e.y = currentTarget.y;
+                    e.pathIndex++;
+                } else {
+                    e.x += (dx / dist) * step;
+                    e.y += (dy / dist) * step;
+                    e.distTraveled += step;
+                }
             }
+            
+            // Check if we passed any open drawbridges in this frame to collect Tolls
+            state.towers.forEach(t => {
+                if (t.type === 'drawbridge') {
+                    if (!e.paidBridges) e.paidBridges = [];
+                    if (!e.paidBridges.includes(t.id)) {
+                        if (e.distTraveled >= t.distAlongTrack) {
+                            e.paidBridges.push(t.id);
+                            
+                            // Generate tokens if Toll/Gold path is active
+                            if (t.branch === 'branch3' && t.upgradeLevel > 0) {
+                                let payment = 3;
+                                if (t.upgradeLevel === 2) payment = 6;
+                                if (t.upgradeLevel === 4) payment = 12;
+                                if (t.upgradeLevel === 5) payment = 20;
+                                
+                                state.tokens += payment;
+                                updateHUD();
+                                playSound('buy');
+                            }
+                        }
+                    }
+                }
+            });
         }
     }
     
@@ -1222,11 +1435,78 @@ function killEnemy(enemy, index) {
     updateHUD();
 }
 
+// Cancel current tower buying/placement or check drawbridge block
+function isEnemyBlockedAtBridge(enemy, bridge) {
+    return Math.abs(enemy.distTraveled - bridge.distAlongTrack) < 1.0;
+}
+
+// Update drawbridge utility block timing, state, spikes, and slows
+function updateDrawbridge(t) {
+    const dt = 16.6 * state.activeSpeed; // milliseconds per frame
+    if (!t.stateTimer) t.stateTimer = 0;
+    if (!t.bridgeState) t.bridgeState = 'closed';
+    
+    // Determine closed duration based on Branch 2 upgrades
+    let closedDuration = 4000; // 4 seconds base
+    if (t.branch === 'branch2') {
+        const extraSecs = [500, 1000, 1500, 2000, 3000]; // 4.5s, 5s, 5.5s, 6s, 7s
+        closedDuration += extraSecs[t.upgradeLevel - 1] || 0;
+    }
+    
+    t.stateTimer += dt;
+    
+    if (t.bridgeState === 'closed') {
+        if (t.stateTimer >= closedDuration) {
+            t.bridgeState = 'open';
+            t.stateTimer = 0;
+            playSound('sell'); // sound cue for opening
+        } else {
+            // Damage blocked enemies if Branch 1 (spikes) is upgraded
+            if (t.branch === 'branch1' && t.upgradeLevel > 0) {
+                const dpsValues = [5, 12, 25, 50, 150];
+                const dps = dpsValues[t.upgradeLevel - 1] || 0;
+                const dmgPerFrame = (dps * dt) / 1000;
+                
+                state.enemies.forEach(e => {
+                    if (isEnemyBlockedAtBridge(e, t)) {
+                        e.hp -= dmgPerFrame;
+                        
+                        // Apply bleed if Tier 3 Razor Teeth is active
+                        if (t.upgradeLevel >= 3 && Math.random() < 0.05) {
+                            applyEffect(e, { type: 'dot', duration: 3000, damage: 4 });
+                        }
+                    }
+                });
+            }
+        }
+    } else { // open state
+        if (t.stateTimer >= 2000) { // 2 seconds open duration
+            t.bridgeState = 'closed';
+            t.stateTimer = 0;
+            playSound('buy'); // sound cue for closing
+        } else {
+            // Apply slow if Spike Pit is active (Branch 1, Level 4+)
+            if (t.branch === 'branch1' && t.upgradeLevel >= 4) {
+                state.enemies.forEach(e => {
+                    const dist = Math.hypot(e.x - t.x, e.y - t.y);
+                    if (dist <= 35) {
+                        applyEffect(e, { type: 'slow', duration: 1500, factor: 0.7 });
+                    }
+                });
+            }
+        }
+    }
+}
+
 // Update deployed towers
 function updateTowers() {
     const now = Date.now();
     
     state.towers.forEach(t => {
+        if (t.type === 'drawbridge') {
+            updateDrawbridge(t);
+            return;
+        }
         if (t.stats.fireRate === 0) return; // Support towers (King) do not shoot
         
         // Aiming target search
@@ -1285,6 +1565,13 @@ function getKingDamageBuff(tower) {
                 if (t.upgradeLevel === 5) multiplier = Math.max(multiplier, 1.5);
                 else if (t.upgradeLevel >= 3) multiplier = Math.max(multiplier, 1.25);
                 else if (t.upgradeLevel >= 1) multiplier = Math.max(multiplier, 1.15);
+            }
+        }
+        // Drawbridge Keep of the Realm damage buff (+15% damage to nearby towers in 120px range)
+        if (t.type === 'drawbridge' && t.branch === 'branch2' && t.upgradeLevel === 5) {
+            const dist = Math.hypot(t.x - tower.x, t.y - tower.y);
+            if (dist <= 120) {
+                multiplier = Math.max(multiplier, 1.15);
             }
         }
     });
@@ -1829,10 +2116,22 @@ function drawPlacementPreview() {
     if (state.placingTowerType && state.mouse.overCanvas) {
         const template = TOWER_TEMPLATES[state.placingTowerType];
         const range = template.range;
-        const x = state.mouse.x;
-        const y = state.mouse.y;
+        let x = state.mouse.x;
+        let y = state.mouse.y;
+        let angle = 0;
         
-        const valid = isValidPlacement(x, y);
+        const valid = isValidPlacement(state.mouse.x, state.mouse.y);
+        
+        if (state.placingTowerType === 'drawbridge') {
+            const proj = getPathProjection(x, y);
+            x = proj.x;
+            y = proj.y;
+            
+            const map = MAPS[state.activeMap];
+            const p1 = map.path[proj.segmentIndex];
+            const p2 = map.path[proj.segmentIndex + 1];
+            angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        }
         
         // Draw range circle
         ctx.fillStyle = valid ? 'rgba(99, 102, 241, 0.12)' : 'rgba(244, 63, 94, 0.12)';
@@ -1846,7 +2145,7 @@ function drawPlacementPreview() {
         // Draw ghost preview Blook
         ctx.save();
         ctx.globalAlpha = 0.5;
-        drawBlook(ctx, state.placingTowerType, x, y, 40, 0, null, 0);
+        drawBlook(ctx, state.placingTowerType, x, y, 40, angle, null, 0, 'closed');
         ctx.restore();
     }
     
@@ -1891,14 +2190,108 @@ function drawTowerBlook(tower) {
         ctx.stroke();
     }
     
-    drawBlook(ctx, tower.type, tower.x, tower.y, 38, tower.angle, tower.branch, tower.upgradeLevel);
+    drawBlook(ctx, tower.type, tower.x, tower.y, 38, tower.angle, tower.branch, tower.upgradeLevel, tower.bridgeState);
 }
 
 // Core drawing engine for Blooks
-function drawBlook(ctx, type, x, y, size, angle, branch, upgradeLevel) {
+function drawBlook(ctx, type, x, y, size, angle, branch, upgradeLevel, bridgeState = 'closed') {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
+    
+    if (type === 'drawbridge') {
+        // Draw custom drawbridge graphic:
+        // Stone towers (top and bottom of track, locally along Y-axis)
+        ctx.fillStyle = '#44403c'; // Dark stone
+        ctx.strokeStyle = '#292524';
+        ctx.lineWidth = 2.5;
+        
+        // Shadow for top/bottom towers
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.beginPath();
+        ctx.roundRect(-size/2 + 2, -size/2 - 6 + 3, size/3, size/3, 4);
+        ctx.roundRect(-size/2 + 2, size/2 - size/3 + 6 + 3, size/3, size/3, 4);
+        ctx.fill();
+        
+        // Top tower
+        ctx.fillStyle = '#44403c';
+        ctx.beginPath();
+        ctx.roundRect(-size/2, -size/2 - 6, size/3, size/3, 4);
+        ctx.fill(); ctx.stroke();
+        
+        // Bottom tower
+        ctx.beginPath();
+        ctx.roundRect(-size/2, size/2 - size/3 + 6, size/3, size/3, 4);
+        ctx.fill(); ctx.stroke();
+        
+        // Draw battlements/crenelations on the towers
+        ctx.fillStyle = '#292524';
+        ctx.fillRect(-size/2 + 2, -size/2 - 8, 4, 3);
+        ctx.fillRect(-size/6 - 4, -size/2 - 8, 4, 3);
+        ctx.fillRect(-size/2 + 2, size/2 + 5, 4, 3);
+        ctx.fillRect(-size/6 - 4, size/2 + 5, 4, 3);
+        
+        // Draw the wooden gate doors (swung closed or open)
+        ctx.fillStyle = '#78350f'; // Warm wood brown
+        ctx.strokeStyle = '#451a03';
+        ctx.lineWidth = 3;
+        
+        const gateLength = size * 0.45;
+        
+        if (bridgeState === 'open') {
+            // Left gate leaf swung open (parallel-ish to path)
+            ctx.save();
+            ctx.translate(-size/3, -size/3);
+            ctx.rotate(-Math.PI / 4);
+            ctx.fillRect(0, -3, gateLength, 6);
+            ctx.strokeRect(0, -3, gateLength, 6);
+            ctx.restore();
+            
+            // Right gate leaf swung open
+            ctx.save();
+            ctx.translate(-size/3, size/3);
+            ctx.rotate(Math.PI / 4);
+            ctx.fillRect(0, -3, gateLength, 6);
+            ctx.strokeRect(0, -3, gateLength, 6);
+            ctx.restore();
+        } else {
+            // Closed: meet in the middle (blocking the track)
+            // Top half gate
+            ctx.fillRect(-size/3, -size/3, 6, gateLength + 2);
+            ctx.strokeRect(-size/3, -size/3, 6, gateLength + 2);
+            
+            // Bottom half gate
+            ctx.fillRect(-size/3, size/3 - gateLength - 2, 6, gateLength + 2);
+            ctx.strokeRect(-size/3, size/3 - gateLength - 2, 6, gateLength + 2);
+            
+            // Draw spikes if Branch 1 (spikes) is active
+            if (branch === 'branch1') {
+                ctx.fillStyle = '#ef4444'; // Red glowing spikes
+                for (let sy = -size/3 + 4; sy <= size/3 - 4; sy += 8) {
+                    ctx.beginPath();
+                    ctx.moveTo(-size/3 + 6, sy);
+                    ctx.lineTo(-size/3 + 12, sy + 3);
+                    ctx.lineTo(-size/3 + 6, sy + 6);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        // Draw cute little eyes on the top stone tower to fit classic Blooket style!
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-size * 0.35, -size * 0.38, 4, 0, Math.PI * 2);
+        ctx.arc(-size * 0.15, -size * 0.38, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(-size * 0.35, -size * 0.38, 2, 0, Math.PI * 2);
+        ctx.arc(-size * 0.15, -size * 0.38, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+        return;
+    }
     
     const template = TOWER_TEMPLATES[type];
     const baseColor = template.color;
