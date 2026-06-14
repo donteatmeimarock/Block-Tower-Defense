@@ -516,11 +516,38 @@ window.addEventListener('DOMContentLoaded', () => {
     // Shop UI instantiation
     initShopUI();
     
+    // Cancel placement button
+    const cancelBuyBtn = document.getElementById('cancel-buy-btn');
+    if (cancelBuyBtn) {
+        cancelBuyBtn.addEventListener('click', cancelPlacement);
+    }
+    
     // Canvas interaction
     canvas.addEventListener('mousemove', onCanvasMouseMove);
     canvas.addEventListener('mouseleave', () => { state.mouse.overCanvas = false; });
     canvas.addEventListener('mouseenter', () => { state.mouse.overCanvas = true; });
     canvas.addEventListener('click', onCanvasClick);
+    
+    // Right-click to cancel placement
+    canvas.addEventListener('contextmenu', (e) => {
+        if (state.gameState === 'playing' && state.placingTowerType) {
+            e.preventDefault();
+            cancelPlacement();
+        }
+    });
+
+    // Escape key to cancel placement / deselect tower
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (state.gameState === 'playing') {
+                if (state.placingTowerType) {
+                    cancelPlacement();
+                } else if (state.selectedTower) {
+                    deselectTower();
+                }
+            }
+        }
+    });
     
     // Inspector bindings
     document.getElementById('close-inspector-btn').addEventListener('click', deselectTower);
@@ -559,6 +586,7 @@ function startGame() {
     
     updateHUD();
     deselectTower();
+    updateCancelPlacementUI();
     playSound('buy');
 }
 
@@ -566,6 +594,8 @@ function startGame() {
 function exitToMenu() {
     state.gameState = 'menu';
     state.isWaveActive = false;
+    state.placingTowerType = null;
+    updateCancelPlacementUI();
     document.getElementById('game-screen').classList.remove('active');
     document.getElementById('menu-screen').classList.add('active');
 }
@@ -618,6 +648,7 @@ function initShopUI() {
                 state.selectedTower = null;
                 document.getElementById('inspector-view').classList.remove('active');
                 document.getElementById('shop-view').classList.add('active');
+                updateCancelPlacementUI();
             }
         });
         
@@ -686,6 +717,7 @@ function onCanvasClick(e) {
             
             state.towers.push(newTower);
             state.placingTowerType = null;
+            updateCancelPlacementUI();
             
             // Select placed tower
             selectTower(newTower);
@@ -874,6 +906,26 @@ function deselectTower() {
     state.selectedTower = null;
     document.getElementById('inspector-view').classList.remove('active');
     document.getElementById('shop-view').classList.add('active');
+}
+
+// Cancel current tower buying/placement
+function cancelPlacement() {
+    if (state.placingTowerType) {
+        state.placingTowerType = null;
+        updateCancelPlacementUI();
+    }
+}
+
+// Show/hide visual indicator to cancel buy
+function updateCancelPlacementUI() {
+    const cancelContainer = document.getElementById('cancel-placement-container');
+    if (cancelContainer) {
+        if (state.placingTowerType) {
+            cancelContainer.classList.remove('hidden');
+        } else {
+            cancelContainer.classList.add('hidden');
+        }
+    }
 }
 
 // Update stats text in inspector panel
