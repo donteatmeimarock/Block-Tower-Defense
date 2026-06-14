@@ -205,8 +205,8 @@ const TOWER_TEMPLATES = {
         name: 'Squire Block',
         cost: 100,
         range: 140,
-        damage: 8,
-        fireRate: 1.0,
+        damage: 18,
+        fireRate: 1.8,
         bulletSpeed: 7,
         color: '#4f46e5',
         desc: 'Fires fast physical arrows at single targets.',
@@ -247,8 +247,8 @@ const TOWER_TEMPLATES = {
         name: 'Mage Block',
         cost: 150,
         range: 130,
-        damage: 10,
-        fireRate: 0.8,
+        damage: 24,
+        fireRate: 1.5,
         bulletSpeed: 5,
         color: '#d946ef',
         desc: 'Fires elemental bursts that slow or ignite enemies.',
@@ -289,8 +289,8 @@ const TOWER_TEMPLATES = {
         name: 'Golem Block',
         cost: 200,
         range: 90,
-        damage: 18,
-        fireRate: 0.5,
+        damage: 38,
+        fireRate: 1.0,
         bulletSpeed: 0, // Instant slam
         color: '#10b981',
         desc: 'Crushes enemies directly around itself with shockwaves.',
@@ -331,8 +331,8 @@ const TOWER_TEMPLATES = {
         name: 'Ninja Block',
         cost: 220,
         range: 120,
-        damage: 6,
-        fireRate: 2.2,
+        damage: 14,
+        fireRate: 3.2,
         bulletSpeed: 9,
         color: '#f43f5e',
         desc: 'Throws rapid-fire shurikens that slice through multiple targets.',
@@ -931,7 +931,7 @@ function startWave() {
     // Wave configuration: generate sequence of enemies
     state.spawnQueue = [];
     const count = 5 + state.wave * 3;
-    const healthMultiplier = Math.pow(1.08, state.wave - 1);
+    const healthMultiplier = Math.pow(1.03, state.wave - 1);
     
     // Determine enemy mix based on wave number
     for (let i = 0; i < count; i++) {
