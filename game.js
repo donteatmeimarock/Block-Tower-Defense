@@ -414,11 +414,11 @@ const TOWER_TEMPLATES = {
 
 // Enemy Definitions (Scale per wave)
 const ENEMY_TEMPLATES = {
-    slime: { name: 'Slime Block', hp: 30, speed: 1.4, size: 28, color: '#4ade80', reward: 8 },
-    runner: { name: 'Speed Runner', hp: 20, speed: 2.5, size: 24, color: '#f43f5e', reward: 10 },
-    golem: { name: 'Steel Golem', hp: 110, speed: 0.7, size: 38, color: '#94a3b8', reward: 18, armored: true },
-    spirit: { name: 'Void Spirit', hp: 60, speed: 1.8, size: 30, color: '#d946ef', reward: 15, immuneToSlow: true },
-    boss: { name: 'Boss Overlord', hp: 800, speed: 0.6, size: 50, color: '#eab308', reward: 100, boss: true }
+    slime: { name: 'Slime Block', hp: 12, speed: 1.4, size: 28, color: '#4ade80', reward: 8 },
+    runner: { name: 'Speed Runner', hp: 8, speed: 2.5, size: 24, color: '#f43f5e', reward: 10 },
+    golem: { name: 'Steel Golem', hp: 45, speed: 0.7, size: 38, color: '#94a3b8', reward: 18, armored: true },
+    spirit: { name: 'Void Spirit', hp: 25, speed: 1.8, size: 30, color: '#d946ef', reward: 15, immuneToSlow: true },
+    boss: { name: 'Boss Overlord', hp: 350, speed: 0.6, size: 50, color: '#eab308', reward: 100, boss: true }
 };
 
 // Core Game State variables
