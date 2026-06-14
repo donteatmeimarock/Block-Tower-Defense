@@ -1,7 +1,72 @@
+// HTML5 Canvas roundRect Polyfill for older/restricted browsers
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, radii) {
+        if (!radii) radii = 0;
+        if (typeof radii === 'number') {
+            radii = [radii, radii, radii, radii];
+        } else if (Array.isArray(radii)) {
+            if (radii.length === 1) radii = [radii[0], radii[0], radii[0], radii[0]];
+            else if (radii.length === 2) radii = [radii[0], radii[1], radii[0], radii[1]];
+            else if (radii.length === 3) radii = [radii[0], radii[1], radii[2], radii[1]];
+        } else {
+            radii = [0, 0, 0, 0];
+        }
+        
+        let r = {
+            topLeft: radii[0] || 0,
+            topRight: radii[1] || 0,
+            bottomRight: radii[2] || 0,
+            bottomLeft: radii[3] || 0
+        };
+
+        const minSide = Math.min(w, h);
+        if (r.topLeft + r.topRight > w) {
+            const factor = w / (r.topLeft + r.topRight);
+            r.topLeft *= factor;
+            r.topRight *= factor;
+        }
+        if (r.bottomLeft + r.bottomRight > w) {
+            const factor = w / (r.bottomLeft + r.bottomRight);
+            r.bottomLeft *= factor;
+            r.bottomRight *= factor;
+        }
+        if (r.topLeft + r.bottomLeft > h) {
+            const factor = h / (r.topLeft + r.bottomLeft);
+            r.topLeft *= factor;
+            r.bottomLeft *= factor;
+        }
+        if (r.topRight + r.bottomRight > h) {
+            const factor = h / (r.topRight + r.bottomRight);
+            r.topRight *= factor;
+            r.bottomRight *= factor;
+        }
+
+        this.moveTo(x + r.topLeft, y);
+        this.lineTo(x + w - r.topRight, y);
+        this.arcTo(x + w, y, x + w, y + r.topRight, r.topRight);
+        this.lineTo(x + w, y + h - r.bottomRight);
+        this.arcTo(x + w, y + h, x + w - r.bottomRight, y + h, r.bottomRight);
+        this.lineTo(x + r.bottomLeft, y + h);
+        this.arcTo(x, y + h, x, y + h - r.bottomLeft, r.bottomLeft);
+        this.lineTo(x, y + r.topLeft);
+        this.arcTo(x, y, x + r.topLeft, y, r.topLeft);
+        return this;
+    };
+}
+
 // Sound Synthesizer via Web Audio API
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let audioCtx = null;
+try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+    }
+} catch (e) {
+    console.warn("Web Audio API is not supported in this browser:", e);
+}
 
 function playSound(type) {
+    if (!audioCtx) return;
     if (audioCtx.state === 'suspended') {
         audioCtx.resume();
     }
@@ -492,7 +557,7 @@ function initShopUI() {
         
         // Render preview icon dynamically using SVG or programmatical mini-canvas
         card.innerHTML = `
-            <div class="shop-card-preview" id="shop-prev-${type}"></div>
+            <div class="shop-card-preview"></div>
             <div class="shop-card-info">
                 <h4>${template.name}</h4>
                 <p>${template.desc}</p>
@@ -513,16 +578,16 @@ function initShopUI() {
         
         shopContainer.appendChild(card);
         
-        // Draw the mini-preview blook icon
-        setTimeout(() => {
-            const container = document.getElementById(`shop-prev-${type}`);
+        // Draw the mini-preview blook icon synchronously
+        const previewContainer = card.querySelector('.shop-card-preview');
+        if (previewContainer) {
             const miniCanvas = document.createElement('canvas');
             miniCanvas.width = 44;
             miniCanvas.height = 44;
-            container.appendChild(miniCanvas);
+            previewContainer.appendChild(miniCanvas);
             const mCtx = miniCanvas.getContext('2d');
             drawBlookIcon(mCtx, type, 22, 22, 32);
-        }, 10);
+        }
     });
 }
 
