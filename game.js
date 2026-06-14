@@ -365,6 +365,7 @@ const state = {
     towers: [],
     enemies: [],
     projectiles: [],
+    spawnQueue: [],
     
     selectedTower: null,
     placingTowerType: null,
@@ -859,7 +860,7 @@ function startWave() {
     }
     
     // Wave configuration: generate sequence of enemies
-    const spawnQueue = [];
+    state.spawnQueue = [];
     const count = 5 + state.wave * 3;
     const healthMultiplier = Math.pow(1.15, state.wave - 1);
     
@@ -876,7 +877,7 @@ function startWave() {
         }
         
         const template = ENEMY_TEMPLATES[type];
-        spawnQueue.push({
+        state.spawnQueue.push({
             type: type,
             hp: Math.round(template.hp * healthMultiplier),
             maxHp: Math.round(template.hp * healthMultiplier),
@@ -903,11 +904,11 @@ function startWave() {
     function spawner() {
         if (!state.isWaveActive || state.gameState !== 'playing') return;
         
-        if (spawnQueue.length > 0) {
+        if (state.spawnQueue.length > 0) {
             spawnTimer++;
             if (spawnTimer >= spawnInterval / state.activeSpeed) {
                 spawnTimer = 0;
-                state.enemies.push(spawnQueue.shift());
+                state.enemies.push(state.spawnQueue.shift());
             }
             requestAnimationFrame(spawner);
         }
@@ -1019,7 +1020,7 @@ function updateEnemies() {
     }
     
     // Check if wave finished (all spawned enemies dead or escaped)
-    if (state.isWaveActive && state.enemies.length === 0) {
+    if (state.isWaveActive && state.enemies.length === 0 && state.spawnQueue.length === 0) {
         endWave();
     }
 }
