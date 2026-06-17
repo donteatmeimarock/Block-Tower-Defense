@@ -42,6 +42,15 @@
                 </div>
                 
                 <button id="start-btn" class="glass-btn primary-btn" style="margin-top: 2.5rem;">DEPLOY TO BATTLE</button>
+                
+                <div class="menu-divider"></div>
+                
+                <h3 style="margin-bottom: 1rem; font-size: 1.15rem; font-weight: 800; letter-spacing: 0.5px; color: var(--text-muted);">LOAD PROGRESS</h3>
+                <div style="display: flex; gap: 0.8rem; width: 100%; max-width: 450px; align-items: center;">
+                    <input type="text" id="import-code-input" placeholder="Paste save code here..." class="glass-input">
+                    <button id="import-btn" class="glass-btn primary-btn" style="padding: 0.8rem 1.8rem; font-size: 0.95rem; white-space: nowrap; border-radius: 50px;">IMPORT</button>
+                </div>
+                <div id="import-feedback" style="font-size: 0.85rem; margin-top: 0.5rem; color: #f43f5e; display: none; font-weight: 600;"></div>
             </div>
         </div>
 
@@ -61,7 +70,10 @@
                     <span class="hud-label">TOKENS</span>
                     <span class="hud-val text-yellow"><i class="fa-solid fa-coins"></i> 300</span>
                 </div>
-                <button id="back-to-menu-btn" class="hud-btn"><i class="fa-solid fa-right-from-bracket"></i></button>
+                <div style="display: flex; gap: 0.8rem;">
+                    <button id="save-game-btn" class="hud-btn" title="Save Game"><i class="fa-solid fa-floppy-disk"></i></button>
+                    <button id="back-to-menu-btn" class="hud-btn" title="Back to Menu"><i class="fa-solid fa-right-from-bracket"></i></button>
+                </div>
             </header>
 
             <div class="main-layout">
@@ -147,6 +159,17 @@
             <h2 id="modal-title">DEFEAT!</h2>
             <p id="modal-desc">The enemies overrun your defenses.</p>
             <button id="modal-retry-btn" class="glass-btn primary-btn">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <!-- Save Game Modal -->
+    <div id="save-modal" class="modal hidden">
+        <div class="modal-content glass-panel" style="max-width: 500px;">
+            <h2>SAVE PROGRESS</h2>
+            <p style="margin-bottom: 1.5rem; font-size: 0.95rem; color: var(--text-muted);">Copy the save code below. You can paste it on the main menu screen to resume your progress.</p>
+            <textarea id="save-code-text" readonly style="width: 100%; height: 120px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass); border-radius: 12px; color: var(--text-main); padding: 12px; font-family: monospace; font-size: 0.8rem; resize: none; word-break: break-all; margin-bottom: 0.5rem; outline: none;"></textarea>
+            <button id="copy-save-btn" class="glass-btn primary-btn" style="width: 100%; margin-bottom: 0.8rem; padding: 0.8rem 2rem; font-size: 1rem;"><i class="fa-solid fa-copy"></i> COPY CODE</button>
+            <button id="close-save-btn" class="glass-btn secondary-btn" style="width: 100%; padding: 0.8rem 2rem; font-size: 1rem; border-radius: 50px;">CLOSE</button>
         </div>
     </div>
 

@@ -564,6 +564,75 @@ window.addEventListener('DOMContentLoaded', () => {
         exitToMenu();
     });
     
+    // Save/Load system bindings
+    const saveBtn = document.getElementById('save-game-btn');
+    const saveModal = document.getElementById('save-modal');
+    const saveCodeText = document.getElementById('save-code-text');
+    const copySaveBtn = document.getElementById('copy-save-btn');
+    const closeSaveBtn = document.getElementById('close-save-btn');
+    
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const code = generateSaveCode();
+            if (code) {
+                saveCodeText.value = code;
+                saveModal.classList.remove('hidden');
+            } else {
+                alert("Failed to generate save code.");
+            }
+        });
+    }
+    
+    if (copySaveBtn) {
+        copySaveBtn.addEventListener('click', () => {
+            saveCodeText.select();
+            saveCodeText.setSelectionRange(0, 99999); // For mobile devices
+            navigator.clipboard.writeText(saveCodeText.value).then(() => {
+                const originalHTML = copySaveBtn.innerHTML;
+                copySaveBtn.innerHTML = '<i class="fa-solid fa-check"></i> COPIED!';
+                setTimeout(() => {
+                    copySaveBtn.innerHTML = originalHTML;
+                }, 2000);
+            }).catch(err => {
+                console.error("Could not copy text: ", err);
+                alert("Failed to copy code automatically. Please copy the code in the text box manually.");
+            });
+        });
+    }
+    
+    if (closeSaveBtn) {
+        closeSaveBtn.addEventListener('click', () => {
+            saveModal.classList.add('hidden');
+        });
+    }
+    
+    // Import save code on main menu screen
+    const importBtn = document.getElementById('import-btn');
+    const importInput = document.getElementById('import-code-input');
+    const importFeedback = document.getElementById('import-feedback');
+    
+    if (importBtn && importInput && importFeedback) {
+        importBtn.addEventListener('click', () => {
+            const code = importInput.value.trim();
+            if (!code) {
+                importFeedback.textContent = "Please paste a save code first.";
+                importFeedback.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const decoded = parseSaveCode(code);
+                loadGame(decoded);
+                // Clear input and feedback on success
+                importInput.value = '';
+                importFeedback.style.display = 'none';
+            } catch (err) {
+                importFeedback.textContent = err.message || "Failed to load save code.";
+                importFeedback.style.display = 'block';
+            }
+        });
+    }
+    
     // Game loop start
     requestAnimationFrame(update);
 });
@@ -2567,5 +2636,156 @@ function drawEnemyStatusEffects(enemy) {
         ctx.beginPath();
         ctx.roundRect(-enemy.size/2, -enemy.size/2, enemy.size, enemy.size, enemy.size * 0.2);
         ctx.fill();
+    }
+}
+
+// Generate Base64 save code representing the current game progress
+function generateSaveCode() {
+    const saveData = {
+        version: 1,
+        map: state.activeMap,
+        wave: state.wave,
+        tokens: state.tokens,
+        lives: state.lives,
+        towers: state.towers.map(t => ({
+            x: Math.round(t.x),
+            y: Math.round(t.y),
+            type: t.type,
+            branch: t.branch,
+            upgradeLevel: t.upgradeLevel,
+            angle: Number(t.angle.toFixed(3)),
+            targetStrategy: t.targetStrategy
+        }))
+    };
+    
+    try {
+        const jsonStr = JSON.stringify(saveData);
+        // UTF-8 friendly Base64 encoding
+        return btoa(unescape(encodeURIComponent(jsonStr)));
+    } catch (e) {
+        console.error("Failed to generate save code:", e);
+        return null;
+    }
+}
+
+// Decodes Base64 string back into JSON object
+function parseSaveCode(code) {
+    try {
+        const jsonStr = decodeURIComponent(escape(atob(code.trim())));
+        return JSON.parse(jsonStr);
+    } catch (e) {
+        throw new Error("Failed to decode save code. Ensure it is copied correctly.");
+    }
+}
+
+// Load the game state from decoded save data
+function loadGame(saveData) {
+    try {
+        // Validation
+        if (!saveData || typeof saveData !== 'object') {
+            throw new Error("Invalid save code format");
+        }
+        if (!MAPS[saveData.map]) {
+            throw new Error("Invalid map key in save code");
+        }
+        if (typeof saveData.wave !== 'number' || saveData.wave < 1) {
+            throw new Error("Invalid wave number in save code");
+        }
+        if (typeof saveData.tokens !== 'number' || saveData.tokens < 0) {
+            throw new Error("Invalid tokens amount in save code");
+        }
+        if (typeof saveData.lives !== 'number' || saveData.lives < 0) {
+            throw new Error("Invalid lives amount in save code");
+        }
+        if (!Array.isArray(saveData.towers)) {
+            throw new Error("Invalid towers list in save code");
+        }
+        
+        // Load settings into active state
+        state.activeMap = saveData.map;
+        state.wave = saveData.wave;
+        state.tokens = saveData.tokens;
+        state.lives = saveData.lives;
+        
+        // Reconstruct towers
+        state.towers = saveData.towers.map(savedTower => {
+            const newTower = {
+                id: Date.now() + Math.random(),
+                x: savedTower.x,
+                y: savedTower.y,
+                type: savedTower.type,
+                level: 1,
+                branch: savedTower.branch || null,
+                upgradeLevel: savedTower.upgradeLevel || 0,
+                angle: savedTower.angle || 0,
+                lastShot: 0,
+                targetStrategy: savedTower.targetStrategy || 'first',
+                stats: { ...TOWER_TEMPLATES[savedTower.type] }
+            };
+            
+            // Reapply upgrade stats sequentially
+            if (newTower.branch !== null && newTower.upgradeLevel > 0) {
+                const template = TOWER_TEMPLATES[newTower.type];
+                const branch = template.upgradeTree[newTower.branch];
+                if (branch) {
+                    for (let i = 0; i < newTower.upgradeLevel; i++) {
+                        const u = branch.levels[i];
+                        if (u) {
+                            Object.keys(u).forEach(key => {
+                                if (key !== 'title' && key !== 'desc' && key !== 'cost') {
+                                    newTower.stats[key] = u[key];
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Handle drawbridge-specific state
+            if (newTower.type === 'drawbridge') {
+                const proj = getPathProjection(newTower.x, newTower.y);
+                newTower.x = proj.x;
+                newTower.y = proj.y;
+                newTower.distAlongTrack = proj.distAlongTrack;
+                newTower.segmentIndex = proj.segmentIndex;
+                newTower.bridgeState = 'closed';
+                newTower.stateTimer = 0;
+            }
+            
+            return newTower;
+        });
+        
+        // Reset interactive state
+        state.enemies = [];
+        state.projectiles = [];
+        state.spawnQueue = [];
+        state.selectedTower = null;
+        state.placingTowerType = null;
+        state.isWaveActive = false;
+        
+        // Switch to the playing screen
+        state.gameState = 'playing';
+        document.getElementById('menu-screen').classList.remove('active');
+        document.getElementById('game-screen').classList.add('active');
+        
+        // Update menu map selection card visually to match loaded map
+        document.querySelectorAll('.map-card').forEach(card => {
+            if (card.dataset.map === state.activeMap) {
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+        
+        // Update game HUD and shop UI
+        updateHUD();
+        deselectTower();
+        updateCancelPlacementUI();
+        playSound('buy');
+        
+        return true;
+    } catch (e) {
+        console.error("Load game error:", e);
+        throw e;
     }
 }
