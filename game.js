@@ -449,7 +449,17 @@ const TOWER_TEMPLATES = {
                     { title: 'Grand Customs Citadel', desc: 'Earn 150 tokens per wave, passing pay 20 tokens', cost: 2000 }
                 ]
             }
-        }
+    },
+    god_tower: {
+        name: 'God Tower',
+        cost: 0,
+        range: 9999,
+        damage: 100,
+        fireRate: 0.1, // Fires every 10 seconds
+        bulletSpeed: 0,
+        color: '#0f172a',
+        desc: 'Strikes all enemies on screen with lightning every 10s.',
+        upgradeTree: {} // Gets no upgrades
     }
 };
 
@@ -459,7 +469,10 @@ const ENEMY_TEMPLATES = {
     runner: { name: 'Speed Runner', hp: 4, speed: 2.5, size: 24, color: '#f43f5e', reward: 10 },
     golem: { name: 'Steel Golem', hp: 16, speed: 0.7, size: 38, color: '#94a3b8', reward: 18, armored: true },
     spirit: { name: 'Void Spirit', hp: 10, speed: 1.8, size: 30, color: '#d946ef', reward: 15, immuneToSlow: true },
-    boss: { name: 'Boss Overlord', hp: 120, speed: 0.6, size: 50, color: '#eab308', reward: 100, boss: true }
+    boss: { name: 'Boss Overlord', hp: 120, speed: 0.6, size: 50, color: '#eab308', reward: 100, boss: true },
+    stronger_boss: { name: 'Stronger Boss', hp: 75, speed: 0.5, size: 52, color: '#ea580c', reward: 120, boss: true },
+    super_boss: { name: 'Super Powerful Boss', hp: 150, speed: 0.45, size: 55, color: '#dc2626', reward: 200, boss: true },
+    tank: { name: 'Tank Block', hp: 500, speed: 0.35, size: 60, color: '#475569', reward: 500, boss: true, armored: true }
 };
 
 // Core Game State variables
@@ -480,7 +493,9 @@ const state = {
     selectedTower: null,
     placingTowerType: null,
     
-    mouse: { x: 0, y: 0, overCanvas: false }
+    mouse: { x: 0, y: 0, overCanvas: false },
+    usedCheats: [],
+    godTowerPending: false
 };
 
 // Canvas Setup
@@ -633,6 +648,89 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Cheat Codes modal bindings
+    const menuCheatsBtn = document.getElementById('menu-cheats-btn');
+    const gameCheatsBtn = document.getElementById('game-cheats-btn');
+    const cheatsModal = document.getElementById('cheats-modal');
+    const closeCheatsBtn = document.getElementById('close-cheats-btn');
+    const redeemCheatBtn = document.getElementById('redeem-cheat-btn');
+    const cheatInput = document.getElementById('cheat-code-input');
+    const cheatFeedback = document.getElementById('cheat-feedback');
+    
+    const openCheats = () => {
+        cheatInput.value = '';
+        cheatFeedback.style.display = 'none';
+        cheatsModal.classList.remove('hidden');
+    };
+    
+    if (menuCheatsBtn) menuCheatsBtn.addEventListener('click', openCheats);
+    if (gameCheatsBtn) gameCheatsBtn.addEventListener('click', openCheats);
+    if (closeCheatsBtn) {
+        closeCheatsBtn.addEventListener('click', () => {
+            cheatsModal.classList.add('hidden');
+        });
+    }
+    
+    if (redeemCheatBtn && cheatInput && cheatFeedback) {
+        redeemCheatBtn.addEventListener('click', () => {
+            const code = cheatInput.value.trim().toLowerCase();
+            if (!code) {
+                cheatFeedback.textContent = "Please enter a cheat code.";
+                cheatFeedback.style.color = '#f43f5e';
+                cheatFeedback.style.display = 'block';
+                return;
+            }
+            
+            if (state.usedCheats.includes(code)) {
+                cheatFeedback.textContent = "This cheat has already been used in this game.";
+                cheatFeedback.style.color = '#f43f5e';
+                cheatFeedback.style.display = 'block';
+                return;
+            }
+            
+            if (code === '1000gold') {
+                state.tokens += 1000;
+                state.usedCheats.push(code);
+                updateHUD();
+                playSound('buy');
+                cheatFeedback.textContent = "Cheat activated: Earned 1000 Gold!";
+                cheatFeedback.style.color = '#10b981';
+                cheatFeedback.style.display = 'block';
+            } else if (code === 'spellofpower') {
+                state.towers.forEach(maxUpgradeTower);
+                state.usedCheats.push(code);
+                if (state.selectedTower) {
+                    selectTower(state.selectedTower);
+                }
+                updateHUD();
+                playSound('buy');
+                cheatFeedback.textContent = "Cheat activated: Max upgraded all towers!";
+                cheatFeedback.style.color = '#10b981';
+                cheatFeedback.style.display = 'block';
+            } else if (code === 'godtower') {
+                const hasPlacedGodTower = state.towers.some(t => t.type === 'god_tower');
+                if (hasPlacedGodTower || state.godTowerPending) {
+                    cheatFeedback.textContent = "You can only have one God Tower per game.";
+                    cheatFeedback.style.color = '#f43f5e';
+                    cheatFeedback.style.display = 'block';
+                    return;
+                }
+                
+                state.godTowerPending = true;
+                state.usedCheats.push(code);
+                initShopUI();
+                playSound('buy');
+                cheatFeedback.textContent = "Cheat activated: God Tower added to shop (FREE)!";
+                cheatFeedback.style.color = '#10b981';
+                cheatFeedback.style.display = 'block';
+            } else {
+                cheatFeedback.textContent = "Invalid cheat code.";
+                cheatFeedback.style.color = '#f43f5e';
+                cheatFeedback.style.display = 'block';
+            }
+        });
+    }
+    
     // Game loop start
     requestAnimationFrame(update);
 });
@@ -649,6 +747,8 @@ function startGame() {
     state.placingTowerType = null;
     state.isWaveActive = false;
     state.gameState = 'playing';
+    state.usedCheats = [];
+    state.godTowerPending = false;
     
     document.getElementById('menu-screen').classList.remove('active');
     document.getElementById('game-screen').classList.add('active');
@@ -678,6 +778,10 @@ function updateHUD() {
     // Enable/disable shop cards based on affordability
     document.querySelectorAll('.shop-card').forEach(card => {
         const type = card.dataset.type;
+        if (type === 'god_tower') {
+            card.classList.remove('disabled');
+            return;
+        }
         const cost = TOWER_TEMPLATES[type].cost;
         if (state.tokens >= cost) {
             card.classList.remove('disabled');
@@ -691,6 +795,44 @@ function updateHUD() {
 function initShopUI() {
     const shopContainer = document.getElementById('shop-items');
     shopContainer.innerHTML = '';
+    
+    if (state.godTowerPending) {
+        const card = document.createElement('div');
+        card.className = 'shop-card god-tower-card';
+        card.dataset.type = 'god_tower';
+        
+        card.innerHTML = `
+            <div class="shop-card-preview"></div>
+            <div class="shop-card-info">
+                <h4 style="color: #fbbf24;">God Tower</h4>
+                <p>Global strikes of 100 dmg. Free cheat code reward!</p>
+            </div>
+            <div class="shop-card-cost" style="color: #fbbf24;">
+                FREE
+            </div>
+        `;
+        
+        card.addEventListener('click', () => {
+            state.placingTowerType = 'god_tower';
+            state.selectedTower = null;
+            document.getElementById('inspector-view').classList.remove('active');
+            document.getElementById('shop-view').classList.add('active');
+            updateCancelPlacementUI();
+        });
+        
+        shopContainer.appendChild(card);
+        
+        // Draw the mini-preview blook icon
+        const previewContainer = card.querySelector('.shop-card-preview');
+        if (previewContainer) {
+            const miniCanvas = document.createElement('canvas');
+            miniCanvas.width = 44;
+            miniCanvas.height = 44;
+            previewContainer.appendChild(miniCanvas);
+            const mCtx = miniCanvas.getContext('2d');
+            drawBlookIcon(mCtx, 'god_tower', 22, 22, 32);
+        }
+    }
     
     Object.keys(TOWER_TEMPLATES).forEach(type => {
         const template = TOWER_TEMPLATES[type];
@@ -787,6 +929,11 @@ function onCanvasClick(e) {
             state.towers.push(newTower);
             state.placingTowerType = null;
             updateCancelPlacementUI();
+            
+            if (newTower.type === 'god_tower') {
+                state.godTowerPending = false;
+                initShopUI();
+            }
             
             // Select placed tower
             selectTower(newTower);
@@ -1215,16 +1362,27 @@ function startWave() {
         if (state.wave >= 4 && i % 5 === 0) type = 'golem';
         if (state.wave >= 6 && i % 6 === 0) type = 'spirit';
         
-        // Spawn boss every 5 waves
-        if (state.wave % 5 === 0 && i === count - 1) {
+        // Spawn boss/tank on specific waves, otherwise general boss every 5 waves
+        if (state.wave === 10 && i === count - 1) {
+            type = 'stronger_boss';
+        } else if (state.wave === 25 && i === count - 1) {
+            type = 'super_boss';
+        } else if (state.wave === 100 && i === count - 1) {
+            type = 'tank';
+        } else if (state.wave % 5 === 0 && i === count - 1) {
             type = 'boss';
         }
         
         const template = ENEMY_TEMPLATES[type];
+        let hpVal = Math.round(template.hp * healthMultiplier);
+        if (type === 'stronger_boss') hpVal = 75;
+        else if (type === 'super_boss') hpVal = 150;
+        else if (type === 'tank') hpVal = 500;
+        
         state.spawnQueue.push({
             type: type,
-            hp: Math.round(template.hp * healthMultiplier),
-            maxHp: Math.round(template.hp * healthMultiplier),
+            hp: hpVal,
+            maxHp: hpVal,
             speed: template.speed,
             size: template.size,
             color: template.color,
@@ -1612,7 +1770,10 @@ function updateTowers() {
                 baseFireRate *= (1 + 0.10 * nearbyEnemiesCount);
             }
             
-            const fireInterval = 1000 / (baseFireRate * getKingSpeedBuff(t));
+            let fireInterval = 1000 / (baseFireRate * getKingSpeedBuff(t));
+            if (t.type === 'god_tower') {
+                fireInterval = 10000; // Fires exactly every 10 seconds
+            }
             if (now - t.lastShot >= fireInterval) {
                 t.lastShot = now;
                 fireTower(t, target);
@@ -1688,6 +1849,17 @@ function getKingRangeBuff(tower) {
 // Fire Projectile
 function fireTower(tower, target) {
     playSound(`shoot_${tower.type}`);
+    
+    // God Tower global lightning strikes
+    if (tower.type === 'god_tower') {
+        const targets = state.enemies.filter(e => e.hp > 0);
+        targets.forEach(e => {
+            e.hp -= 100;
+        });
+        tower.godStrikes = targets.map(e => ({ x: e.x, y: e.y }));
+        setTimeout(() => { tower.godStrikes = null; }, 150);
+        return;
+    }
     
     // Squire Knight Path AoE Spin (No projectile)
     if (tower.type === 'squire' && tower.stats.isAoeAround) {
@@ -1983,6 +2155,9 @@ function draw() {
     
     // Draw Lightning chains
     drawLightningChains();
+    
+    // Draw God strikes
+    drawGodStrikes();
     
     // Draw Projectiles
     drawProjectiles();
@@ -2507,6 +2682,30 @@ function drawBlook(ctx, type, x, y, size, angle, branch, upgradeLevel, bridgeSta
         ctx.arc(-size/6, -size/2 - 2, 2, 0, Math.PI*2);
         ctx.arc(size/6, -size/2 - 2, 2, 0, Math.PI*2);
         ctx.fill();
+    } else if (type === 'god_tower') {
+        // Draw golden halo/glow behind it
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.7, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Draw gold corners/accents
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(-size/2, -size/2, size, size * 0.15);
+        ctx.fillRect(-size/2, size/2 - size * 0.15, size, size * 0.15);
+        
+        // Draw lightning bolt emblem in the center
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.2);
+        ctx.lineTo(-size * 0.12, size * 0.05);
+        ctx.lineTo(-size * 0.02, size * 0.05);
+        ctx.lineTo(-size * 0.08, size * 0.3);
+        ctx.lineTo(size * 0.12, size * 0.05);
+        ctx.lineTo(size * 0.02, size * 0.05);
+        ctx.closePath();
+        ctx.fill();
     }
     
     // Draw Eyes (Classic Cute Blooket eyes)
@@ -2516,8 +2715,8 @@ function drawBlook(ctx, type, x, y, size, angle, branch, upgradeLevel, bridgeSta
     ctx.arc(size * 0.22, -size * 0.04, size * 0.15, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw Pupils (black)
-    ctx.fillStyle = '#0f172a';
+    // Draw Pupils (black, or glowing for God Tower)
+    ctx.fillStyle = (type === 'god_tower') ? '#06b6d4' : '#0f172a';
     ctx.beginPath();
     ctx.arc(-size * 0.22 + 1, -size * 0.04, size * 0.08, 0, Math.PI * 2);
     ctx.arc(size * 0.22 + 1, -size * 0.04, size * 0.08, 0, Math.PI * 2);
@@ -2647,6 +2846,8 @@ function generateSaveCode() {
         wave: state.wave,
         tokens: state.tokens,
         lives: state.lives,
+        usedCheats: state.usedCheats || [],
+        godTowerPending: state.godTowerPending || false,
         towers: state.towers.map(t => ({
             x: Math.round(t.x),
             y: Math.round(t.y),
@@ -2706,6 +2907,8 @@ function loadGame(saveData) {
         state.wave = saveData.wave;
         state.tokens = saveData.tokens;
         state.lives = saveData.lives;
+        state.usedCheats = saveData.usedCheats || [];
+        state.godTowerPending = saveData.godTowerPending || false;
         
         // Reconstruct towers
         state.towers = saveData.towers.map(savedTower => {
@@ -2787,5 +2990,89 @@ function loadGame(saveData) {
     } catch (e) {
         console.error("Load game error:", e);
         throw e;
+    }
+}
+
+// Draw God Tower global strikes
+function drawGodStrikes() {
+    state.towers.forEach(t => {
+        if (t.type === 'god_tower' && t.godStrikes) {
+            t.godStrikes.forEach(p => {
+                drawLightning(t.x, t.y, p.x, p.y, 'rgba(56, 189, 248, 0.6)', '#ffffff', 4.5, 1.5);
+            });
+        }
+    });
+}
+
+// Draw lightning bolts with jagged segments and white core
+function drawLightning(fromX, fromY, toX, toY, colorOuter, colorInner, widthOuter, widthInner) {
+    ctx.save();
+    ctx.strokeStyle = colorOuter;
+    ctx.lineWidth = widthOuter;
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    
+    const dist = Math.hypot(toX - fromX, toY - fromY);
+    const steps = Math.floor(dist / 30);
+    const jaggedPoints = [{ x: fromX, y: fromY }];
+    
+    for (let i = 1; i < steps; i++) {
+        const t = i / steps;
+        const targetX = fromX + (toX - fromX) * t;
+        const targetY = fromY + (toY - fromY) * t;
+        
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const angle = Math.atan2(dy, dx) + Math.PI / 2;
+        const offset = (Math.random() - 0.5) * 12;
+        
+        const ptX = targetX + Math.cos(angle) * offset;
+        const ptY = targetY + Math.sin(angle) * offset;
+        
+        ctx.lineTo(ptX, ptY);
+        jaggedPoints.push({ x: ptX, y: ptY });
+    }
+    
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+    
+    // Draw white core
+    ctx.strokeStyle = colorInner;
+    ctx.lineWidth = widthInner;
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    jaggedPoints.forEach((pt, idx) => {
+        if (idx > 0) ctx.lineTo(pt.x, pt.y);
+    });
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+    
+    ctx.restore();
+}
+
+// Max upgrade a tower (T5 in active branch or default branch1)
+function maxUpgradeTower(t) {
+    const template = TOWER_TEMPLATES[t.type];
+    if (!template || !template.upgradeTree || Object.keys(template.upgradeTree).length === 0) return; // No upgrades
+    
+    if (t.branch === null) {
+        t.branch = 'branch1'; // Default branch
+    }
+    t.upgradeLevel = 5;
+    
+    // Reapply base stats first, then compound upgrades sequentially
+    t.stats = { ...template };
+    const branch = template.upgradeTree[t.branch];
+    if (branch) {
+        for (let i = 0; i < t.upgradeLevel; i++) {
+            const u = branch.levels[i];
+            if (u) {
+                Object.keys(u).forEach(key => {
+                    if (key !== 'title' && key !== 'desc' && key !== 'cost') {
+                        t.stats[key] = u[key];
+                    }
+                });
+            }
+        }
     }
 }

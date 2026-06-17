@@ -670,3 +670,16 @@ body {
     background: var(--border-glass);
     margin: 2rem 0;
 }
+
+/* God Tower shop card styling */
+.shop-card.god-tower-card {
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    background: rgba(251, 191, 36, 0.04);
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.08);
+}
+
+.shop-card.god-tower-card:hover {
+    border-color: rgba(251, 191, 36, 0.8);
+    background: rgba(251, 191, 36, 0.1);
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+}
